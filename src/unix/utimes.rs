@@ -20,7 +20,7 @@ pub fn set_file_atime(p: &Path, atime: FileTime) -> io::Result<()> {
     set_times(p, Some(atime), None, false)
 }
 
-#[cfg(not(target_env = "uclibc"))]
+#[cfg(not(any(target_env = "uclibc", target_os = "vita")))]
 #[allow(dead_code)]
 pub fn set_file_handle_times(
     f: &fs::File,
@@ -40,7 +40,7 @@ pub fn set_file_handle_times(
     };
 }
 
-#[cfg(target_env = "uclibc")]
+#[cfg(any(target_env = "uclibc", target_os = "vita"))]
 #[allow(dead_code)]
 pub fn set_file_handle_times(
     f: &fs::File,
@@ -99,7 +99,13 @@ pub fn set_times(
     let times = [to_timeval(&atime), to_timeval(&mtime)];
     let rc = unsafe {
         if symlink {
-            libc::lutimes(p.as_ptr(), times.as_ptr())
+            cfg_if::cfg_if! {
+                if #[cfg(not(target_os = "vita"))] {
+                    libc::lutimes(p.as_ptr(), times.as_ptr())
+                } else {
+                    0
+                }
+            }
         } else {
             libc::utimes(p.as_ptr(), times.as_ptr())
         }
@@ -118,7 +124,7 @@ fn to_timeval(ft: &FileTime) -> libc::timeval {
     }
 }
 
-#[cfg(target_env = "uclibc")]
+#[cfg(any(target_env = "uclibc", target_os = "vita"))]
 fn to_timespec(ft: &FileTime) -> libc::timespec {
     libc::timespec {
         tv_sec: ft.seconds() as libc::time_t,
